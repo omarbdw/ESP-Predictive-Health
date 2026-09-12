@@ -9,12 +9,16 @@ import streamlit as st
 
 from esp_predictive_health.cases.case_manager import list_cases
 from esp_predictive_health.config.failure_classes import CONFIRMATION_LEVELS, FAILURE_CLASSES
+from esp_predictive_health.ui.components import render_page_header
 
 
 def render() -> None:
     """Render the searchable Case Library page."""
-    st.header("Case Library")
-    st.caption("Search and filter investigation records without modifying raw uploads.")
+    render_page_header(
+        "Case management",
+        "Case Library",
+        "Search and filter investigation records without modifying raw uploads.",
+    )
 
     all_cases = list_cases()
     if not all_cases:

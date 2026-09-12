@@ -15,6 +15,7 @@ from esp_predictive_health.config.failure_classes import (
     WELL_TYPES,
 )
 from esp_predictive_health.database.db import PROJECT_ROOT
+from esp_predictive_health.ui.components import render_page_header
 
 def _save_raw_upload(uploaded_file) -> str | None:
     """Persist an upload under a unique filename and return its project-relative path."""
@@ -28,49 +29,58 @@ def _save_raw_upload(uploaded_file) -> str | None:
     return destination.relative_to(PROJECT_ROOT).as_posix()
 
 
-def _optional_date(label: str):
-    return st.date_input(label, value=None)
+def _optional_date(label: str, key: str):
+    return st.date_input(label, value=None, key=key)
 
 
 def render() -> None:
     """Render the Register Confirmed Case page."""
-    st.header("Register Confirmed Case")
-    st.caption("Store the investigation record separately from the raw time-series file.")
+    render_page_header(
+        "Case management",
+        "Register Confirmed Case",
+        "Store the investigation record separately from the raw time-series file.",
+    )
 
-    with st.form("register_case_form", clear_on_submit=True):
+    with st.form("register_case_form"):
         st.subheader("Well and ESP")
-        well_name = st.text_input("Well name", placeholder="e.g. ESP-001")
-        field_name = st.text_input("Field name")
-        well_type = st.selectbox("Well type", WELL_TYPES)
-        esp_model = st.text_input("ESP model")
-        pump_model = st.text_input("Pump model")
-        motor_hp = st.number_input("Motor horsepower", min_value=0.0, step=1.0)
+        well_name = st.text_input("Well name", placeholder="e.g. ESP-001", key="case_well_name")
+        field_name = st.text_input("Field name", key="case_field_name")
+        well_type = st.selectbox("Well type", WELL_TYPES, key="case_well_type")
+        esp_model = st.text_input("ESP model", key="case_esp_model")
+        pump_model = st.text_input("Pump model", key="case_pump_model")
+        motor_hp = st.number_input("Motor horsepower", min_value=0.0, step=1.0, key="case_motor_hp")
 
         st.subheader("Case timeline")
-        case_start = _optional_date("Case start")
-        case_end = _optional_date("Case end")
-        symptom_start = _optional_date("Symptom start")
-        failure_date = _optional_date("Failure date")
+        case_start = _optional_date("Case start", "case_start")
+        case_end = _optional_date("Case end", "case_end")
+        symptom_start = _optional_date("Symptom start", "case_symptom_start")
+        failure_date = _optional_date("Failure date", "case_failure_date")
 
         st.subheader("Diagnosis and confirmation")
         root_cause_code = st.selectbox(
             "Primary root cause",
             options=list(FAILURE_CLASSES),
             format_func=lambda code: f"{code} - {FAILURE_CLASSES[code]}",
+            key="case_root_cause",
         )
         secondary_cause = st.selectbox(
             "Secondary cause (optional)",
             options=["None", *FAILURE_CLASSES],
             format_func=lambda code: "None" if code == "None" else f"{code} - {FAILURE_CLASSES[code]}",
+            key="case_secondary_cause",
         )
-        confirmation_level = st.selectbox("Confirmation level", CONFIRMATION_LEVELS)
+        confirmation_level = st.selectbox("Confirmation level", CONFIRMATION_LEVELS, key="case_confirmation_level")
         confirmation_method = st.text_input(
-            "Confirmation method", placeholder="e.g. teardown report, pressure test"
+            "Confirmation method",
+            placeholder="e.g. teardown report, pressure test",
+            key="case_confirmation_method",
         )
-        observed_symptoms = st.text_area("Observed symptoms")
-        notes = st.text_area("Notes")
+        observed_symptoms = st.text_area("Observed symptoms", key="case_observed_symptoms")
+        notes = st.text_area("Notes", key="case_notes")
         uploaded_file = st.file_uploader(
-            "Historical dataset (CSV or Excel, optional)", type=["csv", "xlsx", "xls"]
+            "Historical dataset (CSV or Excel, optional)",
+            type=["csv", "xlsx", "xls"],
+            key="case_raw_upload",
         )
 
         submitted = st.form_submit_button("Save confirmed case", type="primary")
@@ -83,6 +93,12 @@ def render() -> None:
         return
     if not confirmation_method.strip():
         st.error("Confirmation method is required.")
+        return
+    if case_start and case_end and case_end < case_start:
+        st.error("Case end cannot be before case start.")
+        return
+    if symptom_start and failure_date and failure_date < symptom_start:
+        st.error("Failure date cannot be before symptom start.")
         return
 
     try:

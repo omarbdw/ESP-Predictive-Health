@@ -12,6 +12,7 @@ data/processed/*
 data/cases/*
 data/simulated/*
 data/models/*
+data/mapping_templates/*
 !data/**/.gitkeep
 
 # Local OS files
