@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS cases (
     raw_data_path TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+    ,well_id TEXT NOT NULL DEFAULT ''
 )
 """
 
@@ -43,5 +44,8 @@ def get_connection(db_path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute(CREATE_CASES_TABLE)
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(cases)")}
+    if "well_id" not in columns:
+        connection.execute("ALTER TABLE cases ADD COLUMN well_id TEXT NOT NULL DEFAULT ''")
     connection.commit()
     return connection

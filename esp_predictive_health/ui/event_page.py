@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from esp_predictive_health.core.events import EventDetectionConfig, detect_events
-from esp_predictive_health.ui.components import render_page_header
+from esp_predictive_health.ui.components import render_page_header, require_quality_gate
 
 
 def render() -> None:
@@ -19,6 +19,8 @@ def render() -> None:
     standardized = st.session_state.get("standardized_import")
     if standardized is None:
         st.info("Apply a mapping on the Import Data page before detecting events.")
+        return
+    if not require_quality_gate():
         return
 
     controls = st.columns(3)

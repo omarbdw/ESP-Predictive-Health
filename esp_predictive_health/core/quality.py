@@ -59,6 +59,16 @@ class QualityReport:
     spikes: dict[str, int] = field(default_factory=dict)
     zero_periods: dict[str, int] = field(default_factory=dict)
     issues: tuple[str, ...] = ()
+    date_only_timestamps: bool = False
+
+
+def quality_status(report: QualityReport) -> str:
+    """Classify a report before downstream engineering or ML processing."""
+    if report.timestamp_invalid or (report.duplicate_timestamps and not report.date_only_timestamps) or report.invalid_numeric or report.impossible_values:
+        return "BLOCKED"
+    if report.issues:
+        return "PASS_WITH_WARNINGS"
+    return "PASS"
 
 
 def _numeric_series(dataframe: pd.DataFrame, field_name: str) -> pd.Series:
@@ -152,12 +162,11 @@ def analyze_quality(
     source_order_deltas = valid_timestamps.diff().dt.total_seconds().dropna()
     non_monotonic_timestamps = int((source_order_deltas < 0).sum())
     unique_timestamps = valid_timestamps.drop_duplicates().sort_values()
-    date_only_timestamps = bool(
-        not unique_timestamps.empty
-        and (unique_timestamps.dt.hour == 0).all()
-        and (unique_timestamps.dt.minute == 0).all()
-        and (unique_timestamps.dt.second == 0).all()
-    )
+    original_timestamp_text = dataframe.loc[valid_timestamps.index, timestamp_column].astype(str)
+    has_explicit_time = original_timestamp_text.str.contains(
+        r"(?:T|\s)\d{1,2}:\d{2}", regex=True, na=False
+    ).any()
+    date_only_timestamps = bool(not has_explicit_time and not unique_timestamps.empty)
     deltas = unique_timestamps.diff().dt.total_seconds().dropna()
     positive_deltas = deltas[deltas > 0]
 
@@ -200,7 +209,9 @@ def analyze_quality(
 
     if timestamp_invalid:
         issues.append(f"{timestamp_invalid} invalid timestamp value(s).")
-    if duplicate_timestamps:
+    if duplicate_timestamps and date_only_timestamps:
+        issues.append(f"{duplicate_timestamps} repeated date record(s); exact sample times are unavailable.")
+    elif duplicate_timestamps:
         issues.append(f"{duplicate_timestamps} duplicate timestamp value(s).")
     if non_monotonic_timestamps:
         issues.append(f"{non_monotonic_timestamps} non-monotonic timestamp interval(s).")
@@ -220,7 +231,7 @@ def analyze_quality(
         issues.append("Potential sensor spikes detected.")
 
     penalty = min(timestamp_invalid / max(row_count, 1) * 30, 30)
-    penalty += 10 if duplicate_timestamps else 0
+    penalty += 10 if duplicate_timestamps and not date_only_timestamps else 0
     penalty += 10 if non_monotonic_timestamps else 0
     penalty += min(missing_sample_rate * 30, 30)
     penalty += min(irregular_intervals / max(len(positive_deltas), 1) * 10, 10)
@@ -247,6 +258,7 @@ def analyze_quality(
         spikes=spikes,
         zero_periods=zero_periods,
         issues=tuple(issues),
+        date_only_timestamps=date_only_timestamps,
     )
 
 
@@ -262,7 +274,13 @@ def clean_dataframe(
     if timestamp_column in cleaned.columns:
         cleaned[timestamp_column] = pd.to_datetime(cleaned[timestamp_column], errors="coerce")
         cleaned = cleaned.dropna(subset=[timestamp_column])
-        cleaned = cleaned.drop_duplicates(subset=[timestamp_column], keep="first")
+        original_timestamp_text = dataframe.loc[cleaned.index, timestamp_column].astype(str)
+        has_explicit_time = original_timestamp_text.str.contains(
+            r"(?:T|\s)\d{1,2}:\d{2}", regex=True, na=False
+        ).any()
+        date_only_timestamps = bool(not has_explicit_time and not cleaned.empty)
+        if not date_only_timestamps:
+            cleaned = cleaned.drop_duplicates(subset=[timestamp_column], keep="first")
         cleaned = cleaned.sort_values(timestamp_column, kind="stable").reset_index(drop=True)
 
     for field_name, (minimum, maximum) in PHYSICAL_RANGES.items():

@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 from math import exp
 
 CANONICAL_FIELDS: tuple[str, ...] = (
+    "well_id",
     "timestamp",
     "frequency_hz",
     "motor_current_a",
@@ -27,6 +28,7 @@ CANONICAL_FIELDS: tuple[str, ...] = (
 )
 
 FIELD_LABELS: dict[str, str] = {
+    "well_id": "Well / asset ID",
     "timestamp": "Timestamp",
     "frequency_hz": "Frequency (Hz)",
     "motor_current_a": "Motor current (A)",
@@ -46,6 +48,7 @@ FIELD_LABELS: dict[str, str] = {
 }
 
 ALIASES: dict[str, tuple[str, ...]] = {
+    "well_id": ("well id", "well name", "well", "asset id", "asset", "well identifier"),
     "timestamp": ("timestamp", "time", "date time", "datetime", "event time"),
     "frequency_hz": (
         "frequency",

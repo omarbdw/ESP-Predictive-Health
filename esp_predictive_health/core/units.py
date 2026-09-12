@@ -8,6 +8,7 @@ from collections.abc import Mapping
 import pandas as pd
 
 CANONICAL_UNITS: dict[str, str] = {
+    "well_id": "native",
     "timestamp": "datetime",
     "frequency_hz": "Hz",
     "motor_current_a": "A",
@@ -27,6 +28,7 @@ CANONICAL_UNITS: dict[str, str] = {
 }
 
 UNIT_OPTIONS: dict[str, tuple[str, ...]] = {
+    "well_id": ("native",),
     "timestamp": ("datetime",),
     "frequency_hz": ("Hz", "rpm"),
     "motor_current_a": ("A", "mA", "kA"),

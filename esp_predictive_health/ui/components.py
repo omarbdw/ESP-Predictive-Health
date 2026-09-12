@@ -74,3 +74,18 @@ def render_sidebar_status() -> None:
             )
         )
     )
+
+
+def require_quality_gate() -> bool:
+    """Stop downstream pages when the current dataset lacks an approved quality state."""
+    status = st.session_state.get("quality_status")
+    if status == "BLOCKED":
+        st.error("This dataset is blocked by critical quality findings. Resolve them on Import Data before continuing.")
+        return False
+    if status == "PASS_WITH_WARNINGS":
+        st.warning("This dataset passed with warnings. Review the Data Quality Report before using results operationally.")
+        return True
+    if status != "PASS":
+        st.info("Run the Data Quality Report on Import Data before continuing.")
+        return False
+    return True

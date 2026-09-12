@@ -17,8 +17,8 @@ from esp_predictive_health.core.column_mapping import (
 )
 from esp_predictive_health.core.data_import import read_uploaded_data, standardize_dataframe
 from esp_predictive_health.core.mapping_templates import list_templates, load_template, save_template
-from esp_predictive_health.core.quality import analyze_quality, clean_dataframe
-from esp_predictive_health.core.units import UNIT_OPTIONS, detect_unit
+from esp_predictive_health.core.quality import analyze_quality, clean_dataframe, quality_status
+from esp_predictive_health.core.units import CANONICAL_UNITS, UNIT_OPTIONS, detect_unit
 from esp_predictive_health.database.db import PROJECT_ROOT
 from esp_predictive_health.ui.components import render_page_header
 
@@ -39,25 +39,29 @@ def _mapping_editor(
     options = ["Ignore", *CANONICAL_FIELDS]
     matches: list[ColumnMatch] = []
     unit_overrides: dict[str, str] = {}
-    header = st.columns([2, 2, 1, 2, 2])
+    header = st.columns([1.5, 2.8, 1.25, 1.5, 2.0])
     header[0].markdown("**Source column**")
-    header[1].markdown("**Detected field**")
+    header[1].markdown("**Canonical field / target unit**")
     header[2].markdown("**Confidence**")
-    header[3].markdown("**Unit**")
+    header[3].markdown("**Source unit**")
     header[4].markdown("**Manual mapping**")
 
     for column in columns:
         detected_match = detected_by_source[column]
         confidence_label = f"{detected_match.confidence:.0%}"
-        cells = st.columns([2, 2, 1, 2, 2])
+        cells = st.columns([1.5, 2.8, 1.25, 1.5, 2.0])
         cells[0].write(column)
         cells[1].write(
             FIELD_LABELS.get(detected_match.canonical_field, "Unmapped")
             if detected_match.canonical_field
             else "Unmapped"
         )
+        if detected_match.canonical_field:
+            cells[1].caption(
+                f"`{detected_match.canonical_field}` -> `{CANONICAL_UNITS[detected_match.canonical_field]}`"
+            )
         cells[2].write(confidence_label)
-        if detected_match.alternatives:
+        if detected_match.alternatives and not detected_match.canonical_field:
             cells[2].caption(
                 " / ".join(
                     f"{FIELD_LABELS[field]} {probability:.0%}"
@@ -123,7 +127,15 @@ def render() -> None:
             st.session_state.pop("event_features", None)
             st.session_state.pop("baseline_profile", None)
             st.session_state.pop("baseline_scored", None)
+            st.session_state.pop("training_windows", None)
+            st.session_state.pop("model_metrics", None)
+            st.session_state.pop("model_artifact", None)
+            st.session_state.pop("model_probabilities", None)
+            st.session_state.pop("model_confidence", None)
+            st.session_state.pop("model_calibration_status", None)
             st.session_state["import_fingerprint"] = upload_fingerprint
+            st.session_state.pop("quality_report", None)
+            st.session_state.pop("quality_status", None)
         dataframe = read_uploaded_data(upload_bytes, uploaded_file.name)
     except (ValueError, OSError, UnicodeDecodeError) as error:
         st.error(f"Could not read the dataset: {error}")
@@ -187,6 +199,9 @@ def render() -> None:
         standardized = standardize_dataframe(dataframe, matches, unit_overrides=unit_overrides)
         st.session_state["standardized_import"] = standardized
         st.session_state["standardized_raw_path"] = raw_path
+        report = analyze_quality(standardized)
+        st.session_state["quality_report"] = report
+        st.session_state["quality_status"] = quality_status(report)
 
     standardized = st.session_state.get("standardized_import")
     if standardized is None:
@@ -197,13 +212,17 @@ def render() -> None:
     st.success(f"Standardized data ready. Raw file preserved at `{st.session_state['standardized_raw_path']}`.")
     st.subheader("Standardized preview")
     st.dataframe(standardized.head(20), use_container_width=True, hide_index=True)
-    report = analyze_quality(standardized)
+    report = st.session_state.get("quality_report") or analyze_quality(standardized)
+    st.session_state["quality_report"] = report
+    st.session_state["quality_status"] = quality_status(report)
     st.subheader("Data Quality Report")
+    st.write(f"Quality gate: **{st.session_state['quality_status']}**")
     metric_columns = st.columns(5)
     metric_columns[0].metric("Quality score", f"{report.score}/100")
     metric_columns[1].metric("Sampling interval", f"{report.sampling_interval_minutes:.1f} min" if report.sampling_interval_minutes else "Unknown")
     metric_columns[2].metric("Missing samples", f"{report.missing_samples:,}")
-    metric_columns[3].metric("Duplicate timestamps", f"{report.duplicate_timestamps:,}")
+    duplicate_label = "Repeated date records" if report.date_only_timestamps else "Duplicate timestamps"
+    metric_columns[3].metric(duplicate_label, f"{report.duplicate_timestamps:,}")
     metric_columns[4].metric(
         "Invalid / impossible",
         f"{sum(report.invalid_numeric.values()) + sum(report.impossible_values.values()):,}",

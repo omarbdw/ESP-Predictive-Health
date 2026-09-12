@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from esp_predictive_health.core.baseline import BaselineConfig, apply_baseline, build_baseline
-from esp_predictive_health.ui.components import render_page_header
+from esp_predictive_health.ui.components import render_page_header, require_quality_gate
 
 
 def render() -> None:
@@ -20,6 +20,8 @@ def render() -> None:
     if standardized is None:
         st.info("Apply a mapping on the Import Data page before building a baseline.")
         return
+    if not require_quality_gate():
+        return
 
     controls = st.columns(4)
     with controls[0]:
@@ -30,6 +32,13 @@ def render() -> None:
         tolerance = st.number_input("Matching tolerance (Hz)", min_value=0.1, value=2.0, step=0.5)
     with controls[3]:
         exclude_trips = st.checkbox("Exclude trip rows", value=True)
+
+    if "frequency_hz" in standardized.columns:
+        frequency_values = standardized["frequency_hz"]
+        st.caption(
+            f"Frequency coverage: {frequency_values.notna().sum():,} valid rows; "
+            f"maximum {frequency_values.max() if frequency_values.notna().any() else 'missing'} Hz."
+        )
 
     if st.button("Build baseline", type="primary"):
         healthy_mask = None

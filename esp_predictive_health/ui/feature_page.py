@@ -8,7 +8,7 @@ from esp_predictive_health.core.feature_engineering import (
     DEFAULT_ROLLING_WINDOWS_MINUTES,
     add_engineered_features,
 )
-from esp_predictive_health.ui.components import render_page_header
+from esp_predictive_health.ui.components import render_page_header, require_quality_gate
 
 
 def render() -> None:
@@ -22,6 +22,8 @@ def render() -> None:
     standardized = st.session_state.get("standardized_import")
     if standardized is None:
         st.info("Apply a mapping on the Import Data page before engineering features.")
+        return
+    if not require_quality_gate():
         return
 
     selected_windows = st.multiselect(
@@ -46,6 +48,12 @@ def render() -> None:
             return
         st.session_state["engineered_features"] = engineered
         st.session_state["engineered_windows"] = tuple(selected_windows)
+        st.session_state.pop("training_windows", None)
+        st.session_state.pop("model_metrics", None)
+        st.session_state.pop("model_artifact", None)
+        st.session_state.pop("model_probabilities", None)
+        st.session_state.pop("model_confidence", None)
+        st.session_state.pop("model_calibration_status", None)
 
     engineered = st.session_state.get("engineered_features")
     if engineered is None:

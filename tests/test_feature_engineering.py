@@ -8,6 +8,7 @@ def test_engineered_features_use_safe_esp_calculations():
     source = pd.DataFrame(
         {
             "timestamp": pd.date_range("2026-01-01", periods=4, freq="5min"),
+            "well_id": ["W-001"] * 4,
             "frequency_hz": [0.0, 50.0, 50.0, 50.0],
             "motor_current_a": [0.0, 100.0, 110.0, 120.0],
             "flow_rate_bpd": [0.0, 1000.0, 1100.0, 1200.0],
@@ -31,6 +32,7 @@ def test_engineering_features_sort_and_drop_invalid_timestamps():
     source = pd.DataFrame(
         {
             "timestamp": ["2026-01-01 00:10", "bad", "2026-01-01 00:00"],
+            "well_id": ["W-001"] * 3,
             "frequency_hz": [50, 50, 50],
         }
     )

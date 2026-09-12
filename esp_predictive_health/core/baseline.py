@@ -39,7 +39,10 @@ def _running_mask(dataframe: pd.DataFrame, minimum_frequency_hz: float) -> pd.Se
     running = frequency.ge(minimum_frequency_hz).fillna(False)
     if "esp_status" in dataframe.columns:
         status = dataframe["esp_status"].astype("string").str.upper().str.strip()
-        running &= ~status.isin({"OFF", "STOP", "STOPPED", "TRIP", "FAULT"})
+        stopped = status.isin({"OFF", "STOP", "STOPPED", "TRIP", "FAULT"})
+        usable_status = status.notna() & status.ne("") & ~status.isin({"NAN", "NONE", "<NA>"})
+        if usable_status.any():
+            running &= ~stopped
     return running
 
 
@@ -69,7 +72,15 @@ def build_baseline(
         eligible &= healthy_mask.reindex(working.index, fill_value=False).astype(bool)
     eligible_data = working.loc[eligible].copy()
     if eligible_data.empty:
-        raise ValueError("No eligible running rows are available for the baseline.")
+        frequency = _numeric(working, "frequency_hz")
+        available = int(frequency.notna().sum())
+        maximum = frequency.max()
+        raise ValueError(
+            "No eligible running rows are available for the baseline. "
+            f"Frequency values available: {available:,}; maximum: "
+            f"{maximum if pd.notna(maximum) else 'missing'}. "
+            "Map the vendor speed/frequency column to frequency_hz and ensure running values exceed the minimum threshold."
+        )
 
     eligible_data["frequency_hz"] = _numeric(eligible_data, "frequency_hz")
     eligible_data["frequency_bin_hz"] = (

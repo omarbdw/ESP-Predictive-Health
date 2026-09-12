@@ -51,6 +51,7 @@ def _row_to_case(row: sqlite3.Row) -> CaseRecord:
         raw_data_path=row["raw_data_path"],
         created_at=_datetime(row["created_at"]),
         updated_at=_datetime(row["updated_at"]),
+        well_id=row["well_id"],
     )
 
 
@@ -93,12 +94,14 @@ def _payload(case: CaseRecord) -> dict[str, Any]:
         "raw_data_path": case.raw_data_path,
         "created_at": _iso(case.created_at),
         "updated_at": _iso(case.updated_at),
+        "well_id": case.well_id.strip(),
     }
 
 
 def create_case(
     *,
     well_name: str,
+    well_id: str = "",
     field_name: str,
     well_type: str,
     case_start: date | None,
@@ -140,6 +143,7 @@ def create_case(
         raw_data_path=raw_data_path,
         created_at=now,
         updated_at=now,
+        well_id=well_id,
     )
     _validate_case(case)
     payload = _payload(case)

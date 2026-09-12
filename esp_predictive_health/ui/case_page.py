@@ -44,6 +44,7 @@ def render() -> None:
     with st.form("register_case_form"):
         st.subheader("Well and ESP")
         well_name = st.text_input("Well name", placeholder="e.g. ESP-001", key="case_well_name")
+        well_id = st.text_input("Well / asset ID", placeholder="Must match telemetry well_id", key="case_well_id")
         field_name = st.text_input("Field name", key="case_field_name")
         well_type = st.selectbox("Well type", WELL_TYPES, key="case_well_type")
         esp_model = st.text_input("ESP model", key="case_esp_model")
@@ -91,6 +92,9 @@ def render() -> None:
     if not well_name.strip():
         st.error("Well name is required.")
         return
+    if not well_id.strip():
+        st.error("Well / asset ID is required for safe telemetry association.")
+        return
     if not confirmation_method.strip():
         st.error("Confirmation method is required.")
         return
@@ -105,6 +109,7 @@ def render() -> None:
         raw_data_path = _save_raw_upload(uploaded_file)
         case = create_case(
             well_name=well_name,
+            well_id=well_id,
             field_name=field_name,
             well_type=well_type,
             case_start=case_start,
