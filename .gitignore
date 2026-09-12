@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.vscode/
+
+# Runtime data and local databases
+data/raw/*
+data/processed/*
+data/cases/*
+data/simulated/*
+data/models/*
+!data/**/.gitkeep
+
+# Local OS files
+.DS_Store
+Thumbs.db
